@@ -318,7 +318,7 @@ void OLED_init(void)
     }
 }
 
-void Picture_display(const unsigned char *ptr_pic)
+void Picture_Display(const unsigned char *ptr_pic)
 {
     unsigned char page,column;
     for(page=0;page<(64/8);page++)        //page loop
@@ -330,7 +330,7 @@ void Picture_display(const unsigned char *ptr_pic)
         }
     }
 }
-void Picture_ReverseDisplay(const unsigned char *ptr_pic)
+void Picture_Display_R(const unsigned char *ptr_pic)
 {
     unsigned char page,column,data;
     for(page=0;page<(64/8);page++)        //page loop

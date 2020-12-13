@@ -1,13 +1,23 @@
 #include <ti/devices/msp432p4xx/driverlib/driverlib.h>
 #include <oled.h>
+#include <motor.h>
 #include <stdio.h>
 
 #define SET_TIME    1
 #define SET_ANGLE   2
 
-
 unsigned int delay_count = 0,set_mode = SET_ANGLE;
+int motor_l=0,motor_r=0;
 unsigned char str[17];
+Timer_A_PWMConfig pwm_S1 =
+{
+        TIMER_A_CLOCKSOURCE_SMCLK,
+        TIMER_A_CLOCKSOURCE_DIVIDER_1,
+        60000,
+        TIMER_A_CAPTURECOMPARE_REGISTER_1,
+        TIMER_A_OUTPUTMODE_RESET_SET,
+        4650
+};
 
 void delay_10ms(unsigned int ms_time)
 {
@@ -19,49 +29,12 @@ void SYSTick_Config(){
     MAP_SysTick_setPeriod(480000);
     MAP_SysTick_enableInterrupt();
 }
-
-Timer_A_PWMConfig pwm1 =
-{
-        TIMER_A_CLOCKSOURCE_SMCLK,
-        TIMER_A_CLOCKSOURCE_DIVIDER_1,
-        3000,
-        TIMER_A_CAPTURECOMPARE_REGISTER_4,
-        TIMER_A_OUTPUTMODE_RESET_SET,
-        0
-};
-Timer_A_PWMConfig pwm2 =
-{
-        TIMER_A_CLOCKSOURCE_SMCLK,
-        TIMER_A_CLOCKSOURCE_DIVIDER_1,
-        3000,
-        TIMER_A_CAPTURECOMPARE_REGISTER_1,
-        TIMER_A_OUTPUTMODE_RESET_SET,
-        0
-};
-Timer_A_PWMConfig pwm_S1 =
-{
-        TIMER_A_CLOCKSOURCE_SMCLK,
-        TIMER_A_CLOCKSOURCE_DIVIDER_1,
-        60000,
-        TIMER_A_CAPTURECOMPARE_REGISTER_1,
-        TIMER_A_OUTPUTMODE_RESET_SET,
-        4650
-};
 void STEER_Config(){
     MAP_Timer_A_generatePWM(TIMER_A2_BASE, &pwm_S1);
 }
-void MOTOR_Config(){
-    MAP_Timer_A_generatePWM(TIMER_A1_BASE, &pwm1);
-    MAP_Timer_A_generatePWM(TIMER_A1_BASE, &pwm2);
-}
 void TIMER_A_Config(){
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P7, GPIO_PIN4|GPIO_PIN7,
-            GPIO_PRIMARY_MODULE_FUNCTION);
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P7, GPIO_PIN5|GPIO_PIN6);
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN5|GPIO_PIN6);
     MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P5, GPIO_PIN6,
-            GPIO_PRIMARY_MODULE_FUNCTION);
-    MOTOR_Config();
+            GPIO_PRIMARY_MODULE_FUNCTION);//Steer
     STEER_Config();
 }
 
@@ -77,6 +50,10 @@ void KEY_Config(){
     MAP_GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN1|GPIO_PIN4);
     MAP_Interrupt_enableInterrupt(INT_PORT1);
 }
+void ENCODER_INIT() {
+
+
+}
 void main(void)
 {
 	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
@@ -84,6 +61,7 @@ void main(void)
 
 	SYSTick_Config();
 	KEY_Config();
+	MOTOR_INIT();
 	TIMER_A_Config();
 
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0);
@@ -95,7 +73,7 @@ void main(void)
     OLED_Print_R(0,1,str);
     sprintf((char *)str,"时间设定:%2d秒",10);
     OLED_Print(2,1,str);
-    sprintf((char *)str,"duty:%5d",pwm_S1.dutyCycle);
+    sprintf((char *)str,"duty_l:%5d",motor_l);
     OLED_Print(4,1,str);
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN0);
     MAP_Interrupt_enableMaster();
@@ -110,15 +88,15 @@ void PORT1_IRQHandler(void)
 
     if (status & GPIO_PIN1)
     {
-        if(pwm1.dutyCycle < 3000) pwm1.dutyCycle += 30;
-        if(pwm2.dutyCycle < 3000) pwm2.dutyCycle += 30;
+        if(motor_l < 3000 - motor_dead) motor_l += 30;
+        if(motor_r < 3000 - motor_dead) motor_r += 30;
     }
     if (status & GPIO_PIN4)
     {
-        if(pwm1.dutyCycle > 300) pwm1.dutyCycle -= 30;
-        if(pwm2.dutyCycle > 300) pwm2.dutyCycle -= 30;
+        if(motor_l > -3000 + motor_dead) motor_l -= 30;
+        if(motor_r > -3000 + motor_dead) motor_r -= 30;
     }
-    MOTOR_Config();
+    MOTOR_Config(motor_l, motor_r);
     /*if (status & GPIO_PIN1)
         {
             if(pwm_S1.dutyCycle < 6000) pwm_S1.dutyCycle += 30;
@@ -128,7 +106,7 @@ void PORT1_IRQHandler(void)
             if(pwm_S1.dutyCycle > 3000) pwm_S1.dutyCycle -= 30;
         }
     STEER_Config();*/
-    sprintf((char *)str,"duty:%5d",pwm1.dutyCycle);
+    sprintf((char *)str,"duty_l:%5d",motor_l);
     OLED_Print(4,1,str);
 }
 
