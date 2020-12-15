@@ -2,12 +2,15 @@
 #include <oled.h>
 #include <motor.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define SET_TIME    1
 #define SET_ANGLE   2
 
 unsigned int delay_count = 0,set_mode = SET_ANGLE;
 int motor_l=0,motor_r=0;
+uint16_t ta3_cnt_l = 0;
+long speed_l=0;
 unsigned char str[17];
 Timer_A_PWMConfig pwm_S1 =
 {
@@ -50,9 +53,19 @@ void KEY_Config(){
     MAP_GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN1|GPIO_PIN4);
     MAP_Interrupt_enableInterrupt(INT_PORT1);
 }
+Timer_A_ContinuousModeConfig encoder1=
+{
+         TIMER_A_CLOCKSOURCE_INVERTED_EXTERNAL_TXCLK,
+         TIMER_A_CLOCKSOURCE_DIVIDER_1,
+         TIMER_A_TAIE_INTERRUPT_ENABLE,
+         TIMER_A_DO_CLEAR
+};
 void ENCODER_INIT() {
-
-
+    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8, GPIO_PIN3,
+                GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_Timer_A_configureContinuousMode(TIMER_A3_BASE, &encoder1);
+    MAP_Interrupt_enableInterrupt(INT_TA3_N);
+    MAP_Timer_A_startCounter(TIMER_A3_BASE, TIMER_A_CONTINUOUS_MODE);
 }
 void main(void)
 {
@@ -115,4 +128,10 @@ void SysTick_Handler(void)
 {
     if(delay_count) delay_count--;
     MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+}
+
+void TA3_N_IRQHandler(void)
+{
+    MAP_Timer_A_clearInterruptFlag(TIMER_A0_BASE);
+    speed_l += 0x10000;
 }
